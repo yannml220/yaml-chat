@@ -198,9 +198,7 @@ export const ChatWindow = ({ userId, hideWindow = false, inputLateralSpace = "0p
 
 	console.log("voici les initial messages :\n", initialMessages)
 
-	// Custom SSE connection that intercepts metadata events for navigation
-	const connectionWithNavigation = stream((messages, data) => {
-		const baseConnection = fetchServerSentEvents(
+	const baseConnection = fetchServerSentEvents(
 			() => `http://localhost:5000/api/v1/chat/streaming`,
 			() => ({
 				method: "POST",
@@ -214,45 +212,14 @@ export const ChatWindow = ({ userId, hideWindow = false, inputLateralSpace = "0p
 					conversation_id: conversationId,
 				},
 			})
-		);
+	);
 
-		// Return async generator that intercepts events
-		return (async function* () {
-			// Get the stream from base connection
-			const stream = baseConnection.connect(messages, data);
 
-			// Intercept and filter events
-			for await (const chunk of stream) {
-				// Type cast to check for custom metadata events
-				const anyChunk = chunk as any;
-				console.log('Received chunk:', anyChunk?.type, anyChunk);
-
-				// Handle metadata events for navigation
-				if (anyChunk?.type === 'metadata' && anyChunk?.content?.conversation_id) {
-					const newConversationId = anyChunk.content.conversation_id;
-					// Only update if we don't already have a conversation ID (new chat)
-					if (!conversationId || conversationId === '') {
-						console.log('Setting active conversation:', newConversationId);
-						// Update state to show the message window
-						setActiveConversationId(newConversationId);
-						// Update URL without triggering component remount
-						window.history.replaceState(null, '', `/chat/${newConversationId}`);
-					}
-					// Don't yield metadata events to chat UI
-					continue;
-				}
-
-				// Yield all other events to the chat system
-				console.log('Yielding chunk to chat UI:', anyChunk?.type);
-				yield chunk;
-			}
-			console.log('Stream ended');
-		})();
-	});
-
+	// Custom SSE connection that intercepts metadata events for navigation
+	
 	const { clear, messages, sendMessage, isLoading } = useChat({
 		initialMessages: initialMessages,
-		connection: connectionWithNavigation,
+		connection: baseConnection,
 	});
 
 
