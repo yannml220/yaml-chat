@@ -1,0 +1,46 @@
+	const { mutate: createGraphMutate } = useCreateGraph(userId);
+	const activeConvIdRef = useRef(conversationId);
+
+	// Sync ref with prop
+	useLayoutEffect(() => {
+		activeConvIdRef.current = conversationId;
+	}, [conversationId]);
+
+	const { messages, sendMessage, isLoading } = useChat({
+		initialMessages: initialMessages,
+		connection: fetchServerSentEvents(
+			() => `http://localhost:5000/api/v1/chat/streaming`,
+			() => ({
+				method: "POST",
+				credentials: "include",
+				headers: {
+					'X-Device-ID': getOrCreateDeviceId(),
+				},
+				body: {
+					message: inputVal,
+					user_id: userId,
+					conversation_id: conversationId,
+				},
+			})
+		),
+		onResponse: (response) => {
+			if (response) {
+				const newId = response.headers.get("X-Conversation-Id");
+				if (newId && onNewConversation) {
+					console.log("X-Conversation-Id caught:", newId);
+					activeConvIdRef.current = newId; // Update ref immediately
+					onNewConversation(newId);
+				}
+			}
+		},
+		onFinish: () => {
+			if (activeConvIdRef.current) {
+				console.log("Response finished, auto-creating graph for:", activeConvIdRef.current);
+				createGraphMutate({
+					conversation_id: activeConvIdRef.current,
+					window_size: 10 // Default window size
+				});
+			}
+		}
+	});
+

@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    
+    environment:
+      - POSTGRES_USER=yann
+      - POSTGRES_PASSWORD=yann
+      - POSTGRES_DB=chat_agent_db
+
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+    name: chat_agent_volume_data
+    driver: local
