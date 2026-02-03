@@ -380,18 +380,30 @@ def create_PMI_co_occurrence_graph_for_source(G , window_size : int , tokens:lis
     
     except ValueError as e:
         print(f"[create_graph error] ValueError: {e}")
+        import traceback
+        traceback.print_exc()  # ← IMPORTANT: Affiche la stack trace complète
+        print(str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
 
     except TypeError as e:
-        print(f"[create_graph error] TypeError: {e}")
+        import traceback
+        traceback.print_exc()  # ← IMPORTANT: Affiche la stack trace complète
+        print(str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
 
     except Exception as e:
-        print(f"[create_graph error] {type(e).__name__}")
+        import traceback
+        traceback.print_exc()  # ← IMPORTANT: Affiche la stack trace complète
+        print(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
+
     except Exception as e :
-        print(e)
+        import traceback
+        traceback.print_exc()  # ← IMPORTANT: Affiche la stack trace complète
+        print(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 

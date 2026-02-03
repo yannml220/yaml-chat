@@ -51,15 +51,6 @@ func (gh *graphHandler) CreateGraphHandler(c *fiber.Ctx) error {
 
 	defer cancel()
 
-	body := new(CreateGraphRequest)
-
-	if err := gh.ValidateJsonBody(c,body) ; err != nil {
-
-		log.Print("Error while validating the request body :",err.Error())
-		return gh.JSONResponse(c,fiber.ErrBadRequest.Code , fiber.Map{
-
-		})
-	}
 
 	userId := c.Query("user_id")
 
@@ -84,6 +75,16 @@ func (gh *graphHandler) CreateGraphHandler(c *fiber.Ctx) error {
 		})
 	}
 
+
+	body := new(CreateGraphRequest)
+
+	if err := gh.ValidateJsonBody(c,body) ; err != nil {
+
+		log.Print("Error while validating the request body :",err.Error())
+		return gh.JSONResponse(c,fiber.ErrBadRequest.Code , fiber.Map{
+
+		})
+	}
 
 	conversationId := body.ConversationId
 
@@ -111,7 +112,7 @@ func (gh *graphHandler) CreateGraphHandler(c *fiber.Ctx) error {
 
 
 	data, _ := json.Marshal(payload)
-	response, err := http.Post("http://localhost:8000/nlp/compute-graph", "application/json", bytes.NewBuffer(data))
+	response, err := http.Post("http://localhost:8000/api/nlp/compute-graph", "application/json", bytes.NewBuffer(data))
 	if err != nil {
 
 		return gh.JSONResponse(c,fiber.ErrInternalServerError.Code , fiber.Map{
@@ -134,6 +135,7 @@ func (gh *graphHandler) CreateGraphHandler(c *fiber.Ctx) error {
 	var resp ResponseBody
 
 	if err := json.Unmarshal([]byte(respBody) , &resp) ; err != nil {
+		fmt.Printf("error unmarshalling the python service response : %v\n", err)
 		return gh.JSONResponse(c,fiber.ErrInternalServerError.Code , fiber.Map{
 			"error" : err,
 		})

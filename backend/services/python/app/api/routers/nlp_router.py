@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.schemas import ComputeCooccurrenceGraph
+from schemas import ComputeCooccurrenceGraph
 from . import nlp_functions as nlp_f
 import networkx as nx
 
@@ -17,7 +17,7 @@ async def compute_cooccurrence_graph(input:ComputeCooccurrenceGraph):
 
     G = nx.Graph()
 
-    return { "graph_data" : nlp_f.create_PMI_co_occurrence_graph_for_source(G ,tokens,input.window_size ) }
+    return { "graph_data" : nlp_f.create_PMI_co_occurrence_graph_for_source(G ,input.window_size,tokens ) }
 
 
 

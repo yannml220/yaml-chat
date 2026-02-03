@@ -243,6 +243,23 @@ func (ch *ChatHandlerImpl) InitConversation(c *fiber.Ctx) error {
 			"error": err,
 		})
 	}
+	/*
+	message := Message{
+		ConversationId: newConversationId,
+		Role: "user",
+		Content: query,
+
+	}
+
+	_, err = ch.Service.CreateMessage(ctx, newConversationId,&message)
+
+	if err != nil {
+		fmt.Printf("error creating the new conversation init message : %v\n", err)
+		return ch.JSONResponse(c, fiber.ErrInternalServerError.Code, fiber.Map{
+			"error": err,
+		})
+	}*/
+
 
 	return ch.JSONResponse(c, fiber.StatusOK, fiber.Map{
 		"id": newConversationId,
@@ -501,6 +518,8 @@ func (ch *ChatHandlerImpl) DeleteConversationById(c *fiber.Ctx) error {
 
 	conversationId := c.Params("conversation_id")
 	userId := c.Query("user_id")
+
+	log.Print("CONV ID :",conversationId)
 
 	authCtx, ok := c.Locals("auth_context").(auth.AuthContext)
 	if !ok {

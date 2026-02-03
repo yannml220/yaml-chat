@@ -317,7 +317,7 @@ const Home = ({ }: HomeProps) => {
 										fontWeight:400,
 									}}
 									>
-										{`Hey ${user?.name.split(" ")[0]} ,`}
+										{`Hey ${user?.name?.split(" ")[0]} ,`}
 									</span>
 
 								</Flex>
@@ -390,7 +390,6 @@ const Home = ({ }: HomeProps) => {
 									borderLeft: "1px solid lightgrey",
 								}}
 							>
-								{/* Placeholder or secondary content */}
 							</Flex>
 
 						</Flex>

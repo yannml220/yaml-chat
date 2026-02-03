@@ -37,6 +37,8 @@ migration-apply :
 migration-apply-easy :
 	GOOSE_DBSTRING=postgres://yann:yann@localhost:5432/chat_agent_db?sslmode=disable goose -dir "./internal/app/db/migrations" postgres  up 
 
+start-python-service :
+	cd services/python/app/ && uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 
 migration-rollback :

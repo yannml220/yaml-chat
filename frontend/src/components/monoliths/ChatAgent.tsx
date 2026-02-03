@@ -6,13 +6,14 @@ import { ArrowUp, Ellipsis, HistoryIcon, Mic, Plus, SquarePen } from "lucide-rea
 import { useResizeTextarea } from "../../hooks/useResizeTextarea";
 import { useChat, fetchServerSentEvents, stream } from "@tanstack/ai-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useFetchConversationMessages, useFetchUserConversations } from "../../lib/api/chat/queries";
+import { useFetchConversationMessages } from "../../lib/api/chat/queries";
+import { useCreateGraph } from "../../lib/api/graph/mutations";
 import { type UIMessage } from "@tanstack/ai";
 import { useQueryClient } from "@tanstack/react-query";
 import { getOrCreateDeviceId } from "../../lib/api/api";
 import MyButton from "../base/Button";
 import Spinner from "../base/Spinner";
-import {useSearch} from "@tanstack/react-router";
+import { useSearch, useNavigate } from "@tanstack/react-router";
 
 
 
@@ -194,31 +195,38 @@ export const ChatWindow = ({ userId, hideWindow = false, inputLateralSpace = "0p
 	const [inputVal, setInputVal] = useState<string>('');
 	useResizeTextarea(textareaRef, inputVal, 220, true, 44)
 
+	const { mutate: createGraph } = useCreateGraph(userId);
+
 
 
 	console.log("voici les initial messages :\n", initialMessages)
 
 	const baseConnection = fetchServerSentEvents(
-			() => `http://localhost:5000/api/v1/chat/streaming`,
-			() => ({
-				method: "POST",
-				credentials: "include",
-				headers: {
-					'X-Device-ID': getOrCreateDeviceId(),
-				},
-				body: {
-					message: inputVal,
-					user_id: userId,
-					conversation_id: conversationId,
-				},
-			})
+		() => `http://localhost:5000/api/v1/chat/streaming?user_id=${userId}`,
+		() => ({
+			method: "POST",
+			credentials: "include",
+			headers: {
+				'X-Device-ID': getOrCreateDeviceId(),
+			},
+			body: {
+				conversation_id: conversationId,
+			},
+		})
 	);
 
 
-	
+
 	const { clear, messages, sendMessage, isLoading } = useChat({
 		initialMessages: initialMessages,
 		connection: baseConnection,
+		onFinish: () => {
+			console.log("Streaming completed, creating cooccurrence graph for conversation:", conversationId);
+			createGraph({
+				conversation_id: conversationId,
+				window_size: 3
+			});
+		}
 	});
 
 
@@ -237,12 +245,38 @@ export const ChatWindow = ({ userId, hideWindow = false, inputLateralSpace = "0p
 
 
 	const search = useSearch({ strict: false }) as any;
+	const navigate = useNavigate();
 
 	useEffect(() => {
-		if (search.init && search.q &&  !isLoading) {
-			sendMessage(search.q);
+		console.log("Effect triggered:", { init: search.init, q: search.q, isLoading, messageCount: messages.length });
+		
+		if (search.init && search.q && !isLoading) {
+			// Check if this message already exists in the conversation
+			const messageExists = messages.some(
+				(msg) => msg.role === 'user' && 
+				msg.parts.some((part: any) => part.type === 'text' && part.content === search.q)
+			);
+			
+			console.log("Sending message:", { q: search.q, messageExists, currentMessages: messages });
+			
+			if (!messageExists) {
+				console.log("Calling sendMessage with:", search.q);
+				sendMessage(search.q);
+			} else {
+				console.log("Message already exists, skipping send");
+			}
+			
+			navigate({
+				to: '/chat/$conversationId',
+				params: { conversationId },
+				search: (prev: any) => {
+					const { init, q, ...rest } = prev;
+					return rest;
+				},
+				replace: true,
+			});
 		}
-	}, [search.init, search.q, sendMessage, isLoading]);
+	}, [search.init, search.q, isLoading, conversationId, navigate, messages, sendMessage]);
 
 
 	useLayoutEffect(() => {
@@ -250,7 +284,7 @@ export const ChatWindow = ({ userId, hideWindow = false, inputLateralSpace = "0p
 	}, [messages]);
 
 
-	const shouldShowWindow = !hideWindow ;
+	const shouldShowWindow = !hideWindow;
 
 	return (
 		<>

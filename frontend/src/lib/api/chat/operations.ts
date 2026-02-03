@@ -44,3 +44,15 @@ export const initConversation = async (query: string, userId: string): Promise<s
 		console.error("Error initiating conversation:", error);
 	}
 }
+
+export const deleteConversationById = async (conversationId: string, userId: string): Promise<string | undefined> => {
+	try {
+		const resp = await api.delete(`chat/${conversationId}`, {
+			searchParams: { user_id: userId }
+		}).json<{ data: { id: string } }>();
+
+		return resp.data.id;
+	} catch (error) {
+		console.error("Error deleting conversation:", error);
+	}
+}
