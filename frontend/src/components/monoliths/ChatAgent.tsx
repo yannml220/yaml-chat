@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Flex from "../base/Flex"
 import { useTheme } from "@emotion/react";
 import MarkdownRenderer from "./MarkdownRenderer";
@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getOrCreateDeviceId } from "../../lib/api/api";
 import MyButton from "../base/Button";
 import Spinner from "../base/Spinner";
+import {useSearch} from "@tanstack/react-router";
 
 
 
@@ -45,6 +46,7 @@ const ChatAgent = ({ conversationId, inputLateralSpace = "0px", ...RestProps }: 
 
 
 	}, [initialMessages, conversationId])
+
 
 
 
@@ -190,8 +192,6 @@ export const ChatWindow = ({ userId, hideWindow = false, inputLateralSpace = "0p
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const [inputVal, setInputVal] = useState<string>('');
-	// Track the active conversation ID for when we receive it from metadata
-	const [activeConversationId, setActiveConversationId] = useState<string>(conversationId);
 	useResizeTextarea(textareaRef, inputVal, 220, true, 44)
 
 
@@ -215,7 +215,6 @@ export const ChatWindow = ({ userId, hideWindow = false, inputLateralSpace = "0p
 	);
 
 
-	// Custom SSE connection that intercepts metadata events for navigation
 	
 	const { clear, messages, sendMessage, isLoading } = useChat({
 		initialMessages: initialMessages,
@@ -237,14 +236,21 @@ export const ChatWindow = ({ userId, hideWindow = false, inputLateralSpace = "0p
 	}
 
 
+	const search = useSearch({ strict: false }) as any;
+
+	useEffect(() => {
+		if (search.init && search.q &&  !isLoading) {
+			sendMessage(search.q);
+		}
+	}, [search.init, search.q, sendMessage, isLoading]);
+
 
 	useLayoutEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 	}, [messages]);
 
 
-	// Show message window if we have an active conversation (either from prop or from streaming)
-	const shouldShowWindow = !hideWindow || activeConversationId !== '';
+	const shouldShowWindow = !hideWindow ;
 
 	return (
 		<>

@@ -1,4 +1,4 @@
-import { PanelLeft, Plus } from "lucide-react"
+import { ArrowUp, PanelLeft, Plus } from "lucide-react"
 import Avatar from "../components/base/Avatar"
 import Flex from "../components/base/Flex"
 import Img from "../components/base/Img"
@@ -7,9 +7,11 @@ import { useAuth } from "../contexts/AuthContext"
 import MyButton from "../components/base/Button"
 import { useTheme } from "@emotion/react"
 import { useFetchUserConversations } from "../lib/api/chat/queries"
-import { useState } from "react"
-import { Link, useParams } from '@tanstack/react-router'
+import { useRef, useState } from "react"
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import styled from "@emotion/styled"
+import {useInitConversation} from "../lib/api/chat/mutations"
+import {useResizeTextarea} from "../hooks/useResizeTextarea"
 
 
 
@@ -52,6 +54,7 @@ const Home = ({ }: HomeProps) => {
 					width: "260px",
 					borderRight: "1px solid lightgrey",
 					flexDirection: "column",
+
 				}}
 			>
 				<Flex
@@ -113,28 +116,27 @@ const Home = ({ }: HomeProps) => {
 
 					</ConversationLink>
 
+
 				</Flex>
 
-				<Flex
-					style={{
-						flex: 1,
-						flexDirection: "column",
-					}}
-				>
 
+				<div
+				style={{
+					padding: "1rem",
+					height: "150px",
+				}}
+				>
 					<Flex
 					align="center"
-						style={{
-							padding: "1rem",
-							//minHeight: "70px",
-							maxHeight: "260px",
-						}}
+					style={{
+						//minHeight: "70px",
+					}}
 					>
 						<span
 							style={{
-								fontWeight: 500,
 								fontSize: "0.85rem",
 								padding: "0 1rem",
+								fontWeight:590,
 							}}
 						>
 							Tags
@@ -160,35 +162,44 @@ const Home = ({ }: HomeProps) => {
 							<Plus size="18px" color="grey" strokeWidth={1.2} />
 						</MyButton>
 
-
-
 					</Flex>
 
 
+				</div>
 
-					<Flex
-						style={{
-							flexDirection: "column",
-							padding: "1rem",
-							flex: 1,
-						}}
-					>
-						<span
-							style={{
-								fontWeight: 500,
-								fontSize: "0.85rem",
-								padding: "0 1rem",
-							}}
-						>
-							Discussions
-						</span>
+									
+
+					<>
+
 						<Flex
 							style={{
 								flexDirection: "column",
-								padding: "1rem 0",
+								padding: "1rem",
+								gap: "1rem",
 								flex: 1,
+								overflowY:"auto",
+								scrollbarWidth: "thin" ,
+								scrollbarColor: `${theme.colors.background.ligth} transparent` ,
+					
 							}}
-						>
+						>	
+							<div
+								style={{
+									fontWeight:590,
+									fontSize: "0.85rem",
+									padding: "0 1rem",
+								}}
+							>
+								Discussions
+							</div>
+
+							<div
+							style={{
+								padding:"0 0.5rem",
+							}}
+
+							>
+								
 							{
 
 
@@ -226,14 +237,11 @@ const Home = ({ }: HomeProps) => {
 									</ConversationLink>
 								))
 							}
+							</div>
+
+							
 						</Flex>
-
-
-					</Flex>
-
-					
-
-				</Flex>
+					</>
 
 			</Flex>
 
@@ -332,13 +340,12 @@ const Home = ({ }: HomeProps) => {
 								</Flex>
 
 							</Flex>
-																				
-							<ChatWindow 
-							hideWindow={true}
+
+							<WelcomeChatInput 
 							userId={user?.id ?? ""}
-							initialMessages={[]}
-							conversationId=""
 							/>
+																				
+							
 						</Flex>
 					:
 						
@@ -427,3 +434,116 @@ const ConversationLink = styled(Link) <{ isSelected?: boolean }>`
   }
 `;
 
+
+
+
+
+
+
+
+interface WelcomeChatInputProps {
+	userId: string;
+}
+
+const WelcomeChatInput = ({ userId }: WelcomeChatInputProps) => {
+	const theme = useTheme();
+	const navigate = useNavigate();
+	const [inputVal, setInputVal] = useState('');
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const { mutate: initChat, isPending } = useInitConversation();
+
+	useResizeTextarea(textareaRef, inputVal, 220, true, 44);
+
+	const handleSubmit = (e: React.FormEvent) => {
+		console.log("test log")
+		e.preventDefault();
+		if (inputVal.trim() && !isPending) {
+			initChat({ query: inputVal, userId }, {
+				onSuccess: (convId) => {
+					if (convId) {
+						navigate({
+							to: '/chat/$conversationId',
+							params: { conversationId: convId },
+							search: { q: inputVal, init: true } as any
+						});
+					}
+				}
+			});
+		}
+	};
+
+	return (
+		<Flex
+			direction="column"
+			style={{
+				boxSizing: "border-box",
+				background: "inherit",
+				display: "flex",
+				paddingBottom: "0.5rem",
+			}}
+		>
+			<Flex
+				direction="column"
+				style={{
+					padding: "0 0.5rem 0.5rem 0.5rem",
+					borderRadius: "10px",
+					border: `1px solid ${theme.colors.background.ligth} `,
+					width: "100%",
+					background: "white",
+					boxShadow: "rgba(31, 34, 37, 0.12) .4px .4px .4px .4px",
+				}}
+			>
+				<textarea
+					onKeyDown={(e) => {
+						if (e.key === 'Enter' && !e.shiftKey) {
+							e.preventDefault();
+							handleSubmit(e as any);
+						}
+					}}
+					ref={textareaRef}
+					value={inputVal}
+					onChange={(e) => setInputVal(e.currentTarget.value)}
+					placeholder="Ask Anything..."
+					style={{
+						width: "100%",
+						height: "44px",
+						padding: "0.5rem",
+						resize: "none",
+						background: "inherit",
+						fontSize: "0.9rem",
+						fontFamily: "inherit",
+						border: "none",
+						boxSizing: "border-box",
+						outline: 'none',
+						lineHeight: "1.6",
+						display: "block",
+					}}
+				/>
+				<Flex style={{ gap: "0.2rem" }}>
+
+					<Flex style={{ marginLeft: "auto", gap: "0.2rem" }}>
+
+						<MyButton
+							onClick={handleSubmit}
+							disabled={isPending || !inputVal.trim()}
+							style={{
+								borderRadius: "50px",
+								display: "flex",
+								justifyContent: "center",
+								alignItems: "center",
+								padding: "0.4rem",
+								background: isPending || !inputVal.trim() ? "grey" : "black",
+							}}
+							bgColor="transparent"
+						>
+							<ArrowUp strokeWidth={1.8} color="white" size="18px" />
+						</MyButton>
+
+					</Flex>
+
+				</Flex>
+
+			</Flex>
+		</Flex>
+	);
+};

@@ -484,18 +484,20 @@ func  ( c * ChatRepoImpl ) CreateConceptConversation(ctx context.Context ,userId
 
 
 
-func  ( c * ChatRepoImpl ) CreateUserConversation(ctx context.Context ,userId string, conversation *Conversation ) (string,error ) {
 
-	sql := "insert into conversations (user_id,meta_data) values ($1, $2) returning conversations.id"
+func (c *ChatRepoImpl) CreateUserConversation(ctx context.Context, userId string, conversation *Conversation) (string, error) {
+
+	sql := "insert into conversations (user_id,title,meta_data) values ($1, $2, $3) returning conversations.id"
 	var ret string
 
-	err := c.Db.GetDb().QueryRow(ctx , sql , userId ,&conversation.MetaData).Scan(&ret)
+	err := c.Db.GetDb().QueryRow(ctx, sql, userId, conversation.Title, &conversation.MetaData).Scan(&ret)
 
 	if err != nil {
-		return "" , err 
+		return "", err
 	}
-	return ret,nil 
+	return ret, nil
 }
+
 
 
 func  ( c * ChatRepoImpl ) UpdateConversationTitle(ctx context.Context ,title string ,  id string ) (error ) {

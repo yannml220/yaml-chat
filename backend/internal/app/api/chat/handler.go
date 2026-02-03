@@ -17,7 +17,6 @@ import (
 type ChatRequest struct {
 	Messages       []Message              `json:"messages"`
 	ConversationId string                 `json:"conversation_id,omitempty"`
-	UserId         string                 `json:"user_id"`
 	Data           map[string]interface{} `json:"data,omitempty"`
 }
 
@@ -184,19 +183,13 @@ func (ch *ChatHandlerImpl) Chat(c *fiber.Ctx) error {
 
 */
 
+
 func (ch *ChatHandlerImpl) InitConversation(c *fiber.Ctx) error {
 
 	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-
 	defer cancel()
 
 	userId := c.Query("user_id")
-
-	init := c.Query("init")
-
-	if init != "true" {
-		return c.Next()
-	}
 
 	authCtx, ok := c.Locals("auth_context").(auth.AuthContext)
 	if !ok {
@@ -205,10 +198,7 @@ func (ch *ChatHandlerImpl) InitConversation(c *fiber.Ctx) error {
 	}
 
 	if userId == "" {
-		return ch.JSONResponse(c, fiber.ErrBadRequest.Code, fiber.Map{
-			"error":   "invalid_request",
-			"message": "user id is required",
-		})
+		userId = authCtx.UserId
 	}
 
 	if userId != authCtx.UserId {
@@ -222,7 +212,6 @@ func (ch *ChatHandlerImpl) InitConversation(c *fiber.Ctx) error {
 	body := new(InitConversationRequest)
 
 	if err := ch.ValidateJsonBody(c, body); err != nil {
-
 		log.Print("Error while validating the request body :", err.Error())
 		return ch.JSONResponse(c, fiber.ErrBadRequest.Code, fiber.Map{})
 	}
@@ -232,12 +221,11 @@ func (ch *ChatHandlerImpl) InitConversation(c *fiber.Ctx) error {
 	if query == "" {
 		return ch.JSONResponse(c, fiber.ErrBadRequest.Code, fiber.Map{
 			"error":   "invalid_request",
-			"message": "query id is required",
+			"message": "query is required",
 		})
 	}
-	
-	firstMessageContent := ""
 
+	firstMessageContent := ""
 	if len(query) > 200 {
 		firstMessageContent = strings.TrimSpace(query[:200])
 	} else {
@@ -245,38 +233,16 @@ func (ch *ChatHandlerImpl) InitConversation(c *fiber.Ctx) error {
 	}
 
 	newConv := &Conversation{
-		Title : &firstMessageContent,
+		Title: &firstMessageContent,
 	}
 
 	newConversationId, err := ch.Service.CreateUserConversation(ctx, userId, newConv)
 	if err != nil {
-
 		fmt.Printf("error creating the user conversation for init : %v\n", err)
 		return ch.JSONResponse(c, fiber.ErrInternalServerError.Code, fiber.Map{
 			"error": err,
 		})
 	}
-
-	now := time.Now()
-
-	initialHistory := []Message{
-		Message{
-			ConversationId: newConversationId,
-			Role:           "user",
-			Content:        query,
-			CreatedAt: &now,
-		},
-	}
-
-	_, err = ch.Service.CreateMessages(ctx, newConversationId, initialHistory)
-
-		if err != nil {
-			fmt.Printf("error creating the init message while initiatiating the conversation : %v\n", err)
-			return ch.JSONResponse(c, fiber.ErrInternalServerError.Code, fiber.Map{
-				"error": err,
-			})
-
-		}
 
 	return ch.JSONResponse(c, fiber.StatusOK, fiber.Map{
 		"id": newConversationId,
@@ -286,17 +252,26 @@ func (ch *ChatHandlerImpl) InitConversation(c *fiber.Ctx) error {
 
 
 
-
-
 func (ch *ChatHandlerImpl) ChatWithStreaming(c *fiber.Ctx) error {
-
-	preStreamCtx, preStreamCancel := context.WithTimeout(c.Context(), 60*time.Second)
-	defer preStreamCancel()
+	
+	userId := c.Query("user_id")
 
 	authCtx, ok := c.Locals("auth_context").(auth.AuthContext)
 	if !ok {
 		log.Print("Missing or invalid auth context")
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	if userId == "" {
+		userId = authCtx.UserId
+	}
+
+	if userId != authCtx.UserId {
+		log.Printf("User ID mismatch: request=%s, auth=%s", userId, authCtx.UserId)
+		return ch.JSONResponse(c, fiber.StatusForbidden, fiber.Map{
+			"error":   "forbidden",
+			"message": "User ID mismatch",
+		})
 	}
 
 	body := new(ChatRequest)
@@ -313,13 +288,12 @@ func (ch *ChatHandlerImpl) ChatWithStreaming(c *fiber.Ctx) error {
 
 	messages := body.Messages
 
-	userId := body.UserId
 
 	log.Println("conversation id :", conversationId)
 	log.Println("user id :", userId)
 	log.Print("messages  :", messages)
 
-	if len(body.Messages) == 0 || body.Messages == nil {
+	if len(messages) == 0 || messages == nil {
 		return ch.JSONResponse(c, fiber.ErrBadRequest.Code, fiber.Map{
 			"error":   "invalid_request",
 			"message": "Messages are required",
@@ -331,32 +305,6 @@ func (ch *ChatHandlerImpl) ChatWithStreaming(c *fiber.Ctx) error {
 			"error":   "invalid_request",
 			"message": "user id is required",
 		})
-	}
-
-	if userId != authCtx.UserId {
-		log.Printf("User ID mismatch: request=%s, auth=%s", userId, authCtx.UserId)
-		return ch.JSONResponse(c, fiber.StatusForbidden, fiber.Map{
-			"error":   "forbidden",
-			"message": "User ID mismatch",
-		})
-	}
-
-	createdNewConversation := false
-
-	if conversationId == "" {
-
-		newConv := &Conversation{}
-
-		newConversationId, err := ch.Service.CreateUserConversation(preStreamCtx, userId, newConv)
-		if err != nil {
-
-			fmt.Printf("error creating the user conversation processing the user request: %v\n", err)
-			return ch.JSONResponse(c, fiber.ErrInternalServerError.Code, fiber.Map{
-				"error": err,
-			})
-		}
-		conversationId = newConversationId
-		createdNewConversation = true
 	}
 
 
@@ -372,6 +320,7 @@ func (ch *ChatHandlerImpl) ChatWithStreaming(c *fiber.Ctx) error {
 	c.Set("Connection", "keep-alive")
 	c.Set("X-Accel-Buffering", "no")
 	c.Set("Transfer-Encoding", "chunked")
+
 	streamCtx, streamCancel := context.WithTimeout(context.Background(), 4*time.Minute)
 
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
@@ -394,19 +343,9 @@ func (ch *ChatHandlerImpl) ChatWithStreaming(c *fiber.Ctx) error {
 
 		newHistory := []Message{}
 
-		firstMessageContent := ""
 
-		for i, message := range result.SessionHistory {
-
-			if createdNewConversation && i == 0 {
-				if len(message.Content) > 200 {
-					firstMessageContent = strings.TrimSpace(message.Content[:200])
-				} else {
-					firstMessageContent = strings.TrimSpace(message.Content)
-				}
-
-			}
-
+		for _, message := range result.SessionHistory {
+			
 			newHistory = append(newHistory, Message{
 				ConversationId: conversationId,
 				Role:           message.Role,
@@ -424,16 +363,7 @@ func (ch *ChatHandlerImpl) ChatWithStreaming(c *fiber.Ctx) error {
 			return
 		}
 
-		if createdNewConversation {
-			err = ch.Service.UpdateConversationTitle(streamCtx, firstMessageContent, conversationId)
-
-			if err != nil {
-				fmt.Printf("error updating the conversation title: %v\n", err)
-				agent.SendSSE(w, agent.StreamEvent{Type: "error", Timestamp: time.Now().String(), Error: &agent.StreamError{Message: err.Error()}})
-				return
-			}
-
-		}
+		
 	})
 
 	return nil

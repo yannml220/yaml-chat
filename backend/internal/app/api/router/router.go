@@ -30,6 +30,7 @@ func RegisterChatRoutes(router fiber.Router, chatHandler chat.ChatHandler, am mi
 	chatRouter.Get("/:conversation_id", chatHandler.GetConversationMessages)
 	chatRouter.Get("/", chatHandler.GetUserConversations)
 	//chatRouter.Post("/",chatHandler.Chat)
+	chatRouter.Post("/", chatHandler.InitConversation)
 	chatRouter.Post("/streaming", chatHandler.ChatWithStreaming)
 	chatRouter.Delete("/:id", chatHandler.DeleteConversationById)
 

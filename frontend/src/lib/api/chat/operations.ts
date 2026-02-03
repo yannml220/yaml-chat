@@ -29,3 +29,18 @@ export const fetchConversationMessages = async (conversationId: string, userId: 
 		console.error("Error fetching conversation messages:", error);
 	}
 }
+
+
+
+export const initConversation = async (query: string, userId: string): Promise<string | undefined> => {
+	try {
+		const resp = await api.post('chat', {
+		searchParams: { user_id: userId },
+		json: { query }
+		}).json<{ data: { id: string } }>();
+
+		return resp.data.id;
+	} catch (error) {
+		console.error("Error initiating conversation:", error);
+	}
+}
