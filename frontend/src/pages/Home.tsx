@@ -1,4 +1,4 @@
-import { ArrowUp, PanelLeft, Plus } from "lucide-react"
+import { ArrowUp, PanelLeft, Plus, Trash2 } from "lucide-react"
 import Avatar from "../components/base/Avatar"
 import Flex from "../components/base/Flex"
 import Img from "../components/base/Img"
@@ -10,7 +10,8 @@ import { useFetchUserConversations } from "../lib/api/chat/queries"
 import { useRef, useState } from "react"
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import styled from "@emotion/styled"
-import {useInitConversation} from "../lib/api/chat/mutations"
+import {useInitConversation, useDeleteConversation} from "../lib/api/chat/mutations"
+import ConfirmDialog from "../components/base/ConfirmDialog"
 import {useResizeTextarea} from "../hooks/useResizeTextarea"
 
 
@@ -30,6 +31,11 @@ const Home = ({ }: HomeProps) => {
 	const { data: conversations, isPending: isFetchUserConversationsPending, error: fetchUserConversationsError } = useFetchUserConversations(user?.id ?? "");
 
 	const theme = useTheme()
+	const navigate = useNavigate()
+	const { mutate: deleteConversation } = useDeleteConversation(user?.id ?? "")
+	
+	const [dialogOpen, setDialogOpen] = useState(false)
+	const [conversationToDelete, setConversationToDelete] = useState<{ id: string; title?: string } | null>(null)
 
 
 	return (
@@ -204,37 +210,16 @@ const Home = ({ }: HomeProps) => {
 
 
 								conversations?.map((conversation) => (
-									<ConversationLink
+									<ConversationItem
 										key={conversation.id}
-										to="/chat/$conversationId"
-										params={{ conversationId: conversation.id }}
+										conversation={conversation}
 										isSelected={conversation.id === conversationId}
-									>
-										<div
-											style={{
-												display: "inline-block",
-												wordBreak: "break-word",
-												width: "100%",
-												whiteSpace: "nowrap",
-												overflow: "hidden",
-												textOverflow: "ellipsis",
-												padding: "0.5rem 0",
-												borderRadius: "13px",
-
-											}}
-										>
-											<span style={{
-												marginRight: "auto",
-												whiteSpace: "nowrap",
-												color: theme.colors.font.dark,
-												fontSize: "0.80rem",
-												fontWeight: 490,
-												width: "100%",
-												lineHeight: "1.25rem",
-												borderRadius: "13px",
-											}}>{conversation.title}</span>
-										</div>
-									</ConversationLink>
+										isCurrentConversation={conversation.id === conversationId}
+										onDelete={() => {
+											setConversationToDelete(conversation)
+											setDialogOpen(true)
+										}}
+									/>
 								))
 							}
 							</div>
@@ -403,6 +388,32 @@ const Home = ({ }: HomeProps) => {
 
 			</Flex>
 
+			<ConfirmDialog
+				isOpen={dialogOpen}
+				title="Delete Conversation"
+				message={`Are you sure you want to delete "${conversationToDelete?.title || 'this conversation'}"? This action cannot be undone.`}
+				confirmText="Delete"
+				cancelText="Cancel"
+				onConfirm={() => {
+					if (conversationToDelete) {
+						deleteConversation(conversationToDelete.id, {
+							onSuccess: () => {
+								if (conversationToDelete.id === conversationId) {
+									navigate({ to: "/" })
+								}
+								setDialogOpen(false)
+								setConversationToDelete(null)
+							}
+						})
+					}
+				}}
+				onCancel={() => {
+					setDialogOpen(false)
+					setConversationToDelete(null)
+				}}
+				isDanger={true}
+			/>
+
 		</Flex>
 	)
 
@@ -412,11 +423,107 @@ const Home = ({ }: HomeProps) => {
 
 export default Home
 
+interface ConversationItemProps {
+	conversation: {
+		id: string;
+		title?: string;
+	};
+	isSelected?: boolean;
+	isCurrentConversation: boolean;
+	onDelete: () => void;
+}
 
+const ConversationItem = ({ conversation, isSelected, isCurrentConversation, onDelete }: ConversationItemProps) => {
+	const theme = useTheme();
+	const [isHovered, setIsHovered] = useState(false);
 
+	return (
+		<ConversationLinkWrapper
+			onMouseEnter={() => setIsHovered(true)}
+			onMouseLeave={() => setIsHovered(false)}
+		>
+			<ConversationLink
+				to="/chat/$conversationId"
+				params={{ conversationId: conversation.id }}
+				isSelected={isSelected}
+				style={{
+					flex: 1,
+					minWidth: 0,
+				}}
+			>
+				<div
+					style={{
+						display: "inline-block",
+						wordBreak: "break-word",
+						width: "100%",
+						whiteSpace: "nowrap",
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						padding: "0.5rem 0",
+						borderRadius: "13px",
+					}}
+				>
+					<span style={{
+						marginRight: "auto",
+						whiteSpace: "nowrap",
+						color: theme.colors.font.dark,
+						fontSize: "0.80rem",
+						fontWeight: 490,
+						width: "100%",
+						lineHeight: "1.25rem",
+						borderRadius: "13px",
+					}}>{conversation.title}</span>
+				</div>
+			</ConversationLink>
+			<DeleteButtonContainer isVisible={isHovered}>
+				<MyButton
+					onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+						e.preventDefault();
+						e.stopPropagation();
+						onDelete();
+					}}
+					hoverBgColor={`${theme.colors.background.superlightgrey}`}
+					style={{
+						height: "28px",
+						width: "28px",
+						display: "flex",
+						justifyContent: "center",
+						alignItems: "center",
+						padding: "0.4rem",
+						borderRadius: "6px",
+						flexShrink: 0,
+						marginLeft: "0.5rem",
+					}}
+				>
+					<Trash2 size="14px" color="#666" strokeWidth={1.5} />
+				</MyButton>
+			</DeleteButtonContainer>
+		</ConversationLinkWrapper>
+	);
+};
+
+const ConversationLinkWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  border-radius: 13px;
+  width: 100%;
+  box-sizing: border-box;
+  
+  &:hover {
+    background: ${props => props.theme.colors.background.superlightgrey};
+  }
+`;
+
+const DeleteButtonContainer = styled.div<{ isVisible: boolean }>`
+  opacity: ${props => props.isVisible ? 1 : 0};
+  transition: opacity 0.15s ease-in-out;
+  display: flex;
+  align-items: center;
+`;
 
 const ConversationLink = styled(Link) <{ isSelected?: boolean }>`
-  padding: 0 1rem;
+  padding: 0;
   display: flex;
   justify-content: flex-start;
   font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
@@ -426,10 +533,11 @@ const ConversationLink = styled(Link) <{ isSelected?: boolean }>`
   color: black;
   border-radius: 13px;
   text-decoration: none;
-  background: ${props => props.isSelected ? props.theme.colors.background.superlightgrey : 'transparent'};
+  background: transparent;
+  width: 100%;
   
   &:hover {
-    background: ${props => props.theme.colors.background.superlightgrey};
+    background: transparent;
   }
 `;
 
