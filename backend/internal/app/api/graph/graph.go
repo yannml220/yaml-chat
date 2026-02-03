@@ -19,6 +19,7 @@ type Edge struct {
 	Source string `json:"source"`
 	Target string `json:"target"`
 	Weight int    `json:"weight"`
+	Pmi float32    `json:"pmi"`
 }
 
 
